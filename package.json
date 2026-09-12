@@ -1,0 +1,29 @@
+{
+  "name": "agents-everywhere-dual-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DealGuard and MentorOS: contextual agent prototypes",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node scripts/run.mjs server",
+    "slack": "node scripts/run.mjs main",
+    "demo": "node scripts/run.mjs demo",
+    "check": "node node_modules/typescript/bin/tsc --noEmit",
+    "test": "node scripts/test.mjs",
+    "build": "node node_modules/typescript/bin/tsc",
+    "verify:agents": "node scripts/run.mjs verify-agents"
+  },
+  "dependencies": {
+    "@slack/types": "^3.1.0",
+    "dotenv": "^16.4.7",
+    "openai": "^7.15.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}

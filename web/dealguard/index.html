@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#faf8f5">
+  <meta name="description" content="Review supplier terms, inspect the evidence, and approve an exact counteroffer.">
+  <title>DealGuard · Deal review</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233455eb'/%3E%3Cpath d='M9 9h8a7 7 0 010 14H9z' fill='none' stroke='%23ffffff' stroke-width='3'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to deal review</a>
+  <aside class="rail" aria-label="Workspace navigation">
+    <a class="brand-symbol" href="#main" aria-label="DealGuard home"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 8h8a8 8 0 0 1 0 16H9z"/><path d="m13 16 3 3 6-6"/></svg></a>
+    <nav class="rail-links" aria-label="Deal sections">
+      <a href="#overview" class="rail-link active" aria-label="Deal overview" title="Deal overview"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg><span>Review</span></a>
+      <a href="#conversation" class="rail-link" aria-label="Supplier messages" title="Supplier messages"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 15a3 3 0 0 1-3 3H9l-5 3V6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3zM8 8h8M8 12h5"/></svg><span>Messages</span></a>
+      <a href="#activity" class="rail-link" aria-label="Activity timeline" title="Activity timeline"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Activity</span></a>
+    </nav>
+    <button id="help-open" class="rail-link help-link" aria-label="How DealGuard works" title="How DealGuard works"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 8a2.5 2.5 0 0 1 5 0c0 2-2.5 2-2.5 4M12 16h.01"/></svg><span>Guide</span></button>
+  </aside>
+
+  <div class="workspace">
+    <header class="topbar">
+      <a class="wordmark" href="#main">DealGuard<span class="wordmark-divider"></span><span class="workspace-name">Procurement</span></a>
+      <div class="topbar-actions">
+        <span class="sync-status" id="sync-status" role="status">Connecting…</span>
+        <button id="refresh" class="icon-button" aria-label="Refresh deal state" title="Refresh deal state"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 19.4 9M4.6 15a8 8 0 0 0 13.3 2.9"/></svg></button>
+        <div class="mode-switch" role="group" aria-label="Analysis mode">
+          <button id="mode-replay" type="button" aria-pressed="false" disabled>Replay</button>
+          <button id="mode-live" type="button" aria-pressed="false" disabled>Live</button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <div id="error-banner" class="error-banner" role="alert" hidden><div><strong id="error-title">Unable to complete request</strong><p id="error-message"></p></div><button id="error-dismiss" class="text-button" type="button">Dismiss</button></div>
+      <section id="overview" class="deal-heading" aria-labelledby="deal-title">
+        <div><div class="deal-breadcrumb">Deal review <span>/</span> Infrastructure</div><h1 id="deal-title">Cloud infrastructure renewal</h1><div class="deal-meta"><span class="vendor-monogram" aria-hidden="true">V</span><span>Vertex Cloud Systems</span><span class="meta-divider">·</span><span>Fictional supplier</span><span class="badge neutral" id="offer-version">No offer yet</span><a id="decision-jump" class="badge pending" href="#buyer-decision" hidden>Review decision ↓</a></div></div>
+        <button class="secondary-button evidence-trigger" id="evidence-open" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h9a2 2 0 0 1 2 2v14M5 6h9a2 2 0 0 1 2 2v13H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM7 11h5M7 15h5"/></svg>View evidence<span class="count" id="evidence-count">0</span></button>
+      </section>
+
+      <div class="mode-note" id="mode-note"><div><span class="status-dot neutral-dot" id="mode-dot"></span><span id="mode-description">Loading the workspace’s analysis mode and service capabilities.</span></div><div class="capabilities" id="capabilities"></div></div>
+      <div id="processing-banner" class="processing-banner" role="status" hidden><span class="spinner" aria-hidden="true"></span><div><strong id="processing-title">Reviewing supplier terms</strong><span id="processing-detail">Reading the offer, checking policy, and preparing an exact counteroffer.</span></div><span id="processing-time"></span></div>
+      <div id="change-alert" class="change-alert" hidden></div>
+
+      <div class="deal-grid">
+          <section class="panel comparison-panel" aria-labelledby="comparison-title">
+            <div class="panel-heading"><div><h2 id="comparison-title">The deal, side by side</h2><p>Same service scope. Every commitment visible.</p></div><div id="proposal-selector-wrap" hidden><label class="sr-only" for="proposal-selector">Offer to inspect</label><select id="proposal-selector"></select></div></div>
+            <div id="comparison-empty" class="empty-comparison"><div class="empty-rule" aria-hidden="true"></div><h3>Start with the supplier’s offer</h3><p>Paste the terms below or load the initial example. DealGuard will compare costs and prepare a buyer review.</p><a class="text-link" href="#supplier-input">Add supplier message <span aria-hidden="true">↗</span></a></div>
+            <div id="comparison-data" hidden>
+              <div class="cost-spotlight"><div><span class="eyelabel">Supplier annualized cost</span><div class="big-money" id="incoming-cost">—</div><span class="money-caption" id="incoming-cost-note"></span></div><div class="proposed-spotlight"><span class="eyelabel">Proposed annualized cost</span><div class="big-money" id="proposed-cost">—</div><span class="money-caption" id="proposed-cost-note"></span></div></div>
+              <div class="table-wrap"><table class="terms-table"><caption class="sr-only">Supplier offer and proposed counteroffer in AED</caption><thead><tr><th scope="col">Commercial terms</th><th scope="col">Supplier offer</th><th scope="col">Counteroffer</th></tr></thead><tbody id="terms-body"></tbody></table></div>
+              <div class="comparison-outcome" id="comparison-outcome"></div>
+            </div>
+            <div class="budget-footnote"><span>Annual deal budget <strong>AED 1,080,000</strong></span><button type="button" class="text-button" id="cost-method-open">How costs are calculated<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></svg></button></div>
+          </section>
+
+
+        <aside id="buyer-decision" class="decision-column" aria-label="Buyer decision">
+          <section class="panel recommendation-panel" aria-labelledby="recommendation-title">
+            <div class="panel-heading"><h2 id="recommendation-title">Buyer recommendation</h2><span id="proposal-status" class="badge neutral">Waiting</span></div>
+            <div id="recommendation-empty" class="recommendation-empty"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="m24 5 15 6v12c0 10-15 19-15 19S9 33 9 23V11z"/><path d="m17 23 5 5 10-11"/></svg><h3>A clear decision, with context.</h3><p>Review the recommendation, its evidence, and the exact outgoing terms before you approve.</p><ol><li>Review supplier terms</li><li>Check costs and policy</li><li>Approve an exact counteroffer</li></ol></div>
+            <div id="recommendation-data" hidden>
+              <div class="recommendation-copy"><h3 id="decision-headline"></h3><p id="rationale"></p><button class="text-link" type="button" id="rationale-evidence">Inspect cited evidence <span id="cited-count"></span><span aria-hidden="true">↗</span></button></div>
+              <div class="policy-section" id="policy-section"></div>
+              <div class="counteroffer-section"><div class="section-heading"><h3>Exact counteroffer</h3><button id="copy-counteroffer" class="text-button" type="button">Copy text</button></div><p class="counteroffer-text" id="counteroffer-text"></p><p class="small-note" id="counteroffer-note"></p></div>
+              <div id="delivery-details" class="delivery-details" hidden></div>
+              <div class="decision-actions" id="decision-actions"><p id="approval-note" class="small-note"></p><button id="approve" class="primary-button wide" type="button" disabled>Approve exact counteroffer</button><button id="reject" class="secondary-button wide" type="button" disabled>Reject counteroffer</button><button id="reconcile" class="secondary-button wide" type="button" hidden>Check delivery receipt</button></div>
+              <div class="proposal-reference" id="proposal-reference"></div>
+            </div>
+          </section>
+          <div class="review-assurance"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6zM8 11l3 3 5-5"/></svg><p>Approval applies only to the exact stored terms. A new supplier offer requires a new review.</p></div>
+        </aside>
+
+          <section id="conversation" class="panel conversation-panel" aria-labelledby="conversation-title">
+            <div class="panel-heading"><div><h2 id="conversation-title">Supplier conversation</h2><p id="conversation-subtitle">Submit a message to trigger a review.</p></div><span class="badge neutral" id="message-count">0 messages</span></div>
+            <div class="messages" id="messages"><p class="empty-text">No messages received. Your first offer starts the negotiation.</p></div>
+            <form id="message-form" class="composer">
+              <label for="supplier-input">New supplier message</label>
+              <div class="example-actions"><span>Load an example:</span><button class="sample-button" id="example-initial" type="button">Initial offer</button><button class="sample-button" id="example-followup" type="button">Changed-term follow-up</button></div>
+              <textarea id="supplier-input" name="text" rows="4" maxlength="4000" required placeholder="Paste the supplier’s annual price, setup fee, contract length, and payment terms…" aria-describedby="composer-hint"></textarea>
+              <div class="composer-footer"><p id="composer-hint">Edit before review. This input does not message the supplier.</p><button id="message-submit" class="primary-button" type="submit" disabled>Review offer<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button></div>
+            </form>
+          </section>
+      </div>
+
+      <section id="activity" class="panel activity-panel" aria-labelledby="activity-title"><div class="panel-heading"><div><h2 id="activity-title">Activity</h2><p>A record of the review, approvals, and delivery.</p></div><button id="activity-toggle" class="text-button" type="button" hidden>Show all</button></div><ol class="activity-list" id="activity-list"><li class="empty-text">Activity will appear when a supplier message is received.</li></ol></section>
+      <footer class="workspace-footer"><span>DealGuard <span aria-hidden="true">/</span> Buyer review workspace</span><span>Synthetic business records · Supplier agreement remains unconfirmed</span><a class="demo-link" href="/mentoros/">Explore MentorOS <span aria-hidden="true">↗</span></a></footer>
+    </main>
+  </div>
+
+  <dialog id="evidence-drawer" class="drawer" aria-labelledby="evidence-title"><div class="drawer-header"><div><span class="eyelabel">Decision context</span><h2 id="evidence-title">Evidence &amp; policy</h2></div><button class="icon-button" data-close="evidence-drawer" aria-label="Close evidence drawer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><div class="drawer-body"><p class="drawer-intro">These are synthetic business records. Historical concessions describe the sample; they do not predict supplier acceptance.</p><div class="section-heading"><h3>Source records</h3><span class="small-note" id="evidence-selection-note"></span></div><div id="evidence-list"></div><details id="patterns-disclosure" class="patterns-disclosure" hidden><summary>Historical negotiation statistics</summary><div id="patterns"></div></details></div></dialog>
+  <dialog id="method-dialog" class="modal" aria-labelledby="method-title"><div class="drawer-header"><h2 id="method-title">Understand the comparison</h2><button class="icon-button" data-close="method-dialog" aria-label="Close cost explanation"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><div class="modal-body"><h3>Total commitment</h3><p>Annual recurring cost × term months ÷ 12 + one-time setup fee.</p><h3>Annualized cost</h3><p>Total commitment × 12 ÷ term months. This spreads the setup fee across the contract and allows a like-for-like comparison with the annual budget.</p><h3>Requested difference</h3><p>The supplier’s annualized cost minus the proposed annualized cost. The counteroffer is a request. A shorter commitment is not a cash saving, and supplier acceptance is unconfirmed.</p><p class="small-note">Amounts are AED. Costs and approval policy are calculated by the server from the stored terms. Annual deal budget: AED 1,080,000 (BUDGET-001).</p></div></dialog>
+  <dialog id="help-dialog" class="modal" aria-labelledby="help-title"><div class="drawer-header"><h2 id="help-title">Your review workflow</h2><button class="icon-button" data-close="help-dialog" aria-label="Close workflow guide"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><div class="modal-body"><ol class="guide-list"><li><strong>Start with an offer.</strong> Load the initial example or paste supplier terms, edit the message, then select Review offer.</li><li><strong>Inspect the decision.</strong> Compare the annualized cost and total commitment. Open the evidence and check required approvals.</li><li><strong>Review the exact wording.</strong> Approval is tied to the stored counteroffer. Replay produces a simulated receipt. Live delivery requires configured, authorized transport.</li><li><strong>Test the follow-up.</strong> Load the changed-term example and review again. Its 48-month commitment breaches the sample policy.</li></ol><p class="small-note">Changing mode starts a fresh negotiation. All business records in this workspace are synthetic, including in live analysis mode.</p></div></dialog>
+  <dialog id="reset-dialog" class="modal" aria-labelledby="reset-title"><form id="reset-form"><div class="drawer-header"><h2 id="reset-title">Start a fresh negotiation?</h2><button class="icon-button" type="button" data-close="reset-dialog" aria-label="Cancel mode change"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><div class="modal-body"><p id="reset-description"></p><p class="small-note">This resets the workspace’s current negotiation. Any message already delivered externally cannot be undone.</p><div class="modal-actions"><button type="button" class="secondary-button" data-close="reset-dialog">Keep current review</button><button type="submit" class="primary-button" id="reset-confirm">Start fresh</button></div></div></form></dialog>
+  <div id="announcement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <noscript><div class="noscript">DealGuard requires JavaScript to load deal state and review offers.</div></noscript>
+</body>
+</html>

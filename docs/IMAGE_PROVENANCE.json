@@ -1,0 +1,22 @@
+{
+  "created": "2026-09-12",
+  "provider": "Integrated OpenAI image generation",
+  "use": "Static original fictional AI coach portraits. No real person likeness requested. Unedited copies of tool outputs; CSS crops for card display.",
+  "actualCost": null,
+  "assets": [
+    {
+      "coach": "Mira",
+      "role": "Health",
+      "path": "web/assets/coach-health.png",
+      "original": "/Users/mohammedosman/.codex/generated_images/01a094b2-2d4c-7d83-8eeb-95fe87ed545e/exec-10c5eac3-0661-4afd-ad0a-e44d7175c663.png",
+      "sha256": "96c7ffda4acfebab6fb95ffbcdafd08c52a0db695d5aa9b302e690c5fda824d2"
+    },
+    {
+      "coach": "Atlas",
+      "role": "Career",
+      "path": "web/assets/coach-career.png",
+      "original": "/Users/mohammedosman/.codex/generated_images/01a094b2-2d4c-7d83-8eeb-95fe87ed545e/exec-d0b9881b-107c-4c89-8370-ed72b48dd898.png",
+      "sha256": "1e462a8a75d734d3b617f8706624e92a83e25701b9773bb5fec2152ee0e28720"
+    }
+  ]
+}
