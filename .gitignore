@@ -12,3 +12,5 @@ artifacts/
 .vision-loop/
 .test-build/
 .verification/
+.playwright-cli/
+.unlazy/

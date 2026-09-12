@@ -61,7 +61,7 @@ function visionResponse(value: unknown = RECEIPT, status = 'completed', refusal 
       : [{ type: 'output_text', text: JSON.stringify(value), annotations: [] }] }],
   });
 }
-const imageResponse = (buffer = PNG) => Response.json({ created: 1, data: [{ b64_json: buffer.toString('base64'), revised_prompt: PRIVATE }] });
+const imageResponse = (buffer = PNG) => Response.json({ created: 1, data: [{ b64_json: buffer.toString('base64'), revised_prompt: PRIVATE }] }, { headers: { 'x-request-id': 'req_image_verified' } });
 function storage(): string { const path = join(process.cwd(), '.mentor', 'images'); mkdirSync(path, { recursive: true }); return path; }
 
 test('missing key fails both provider operations without sending or storing anything', async t => {
@@ -200,7 +200,7 @@ test('incomplete and refused Responses are never presented as successful extract
   await assert.rejects(analyzeImage(PNG, 'image/png'), safeFailure('PROVIDER_INVALID_RESPONSE', 502));
 });
 
-test('meal generation uses one low-quality 1024 PNG and returns a retrievable private UUID file', async t => {
+test('meal generation uses gpt-image-2 high-quality 1024 PNG and returns a retrievable private UUID file', async t => {
   process.env.OPENAI_API_KEY = KEY;
   process.env.OPENAI_BASE_URL = 'https://untrusted.example';
   process.env.OPENAI_LOG = 'debug';
@@ -211,8 +211,8 @@ test('meal generation uses one low-quality 1024 PNG and returns a retrievable pr
     assert.equal(init?.redirect, 'error');
     assert.equal(new Headers(init?.headers).get('authorization'), `Bearer ${KEY}`);
     const body = JSON.parse(String(init?.body));
-    assert.equal(body.model, 'gpt-image-1-mini');
-    assert.equal(body.n, 1); assert.equal(body.quality, 'low'); assert.equal(body.size, '1024x1024');
+    assert.equal(body.model, 'gpt-image-2');
+    assert.equal(body.n, 1); assert.equal(body.quality, 'high'); assert.equal(body.size, '1024x1024');
     assert.equal(body.output_format, 'png'); assert.equal(body.response_format, undefined);
     assert.ok(body.prompt.endsWith(PROMPT));
     assert.match(body.prompt, /meal illustration/);
@@ -221,6 +221,7 @@ test('meal generation uses one low-quality 1024 PNG and returns a retrievable pr
   const meal = await generateMealImage(` ${PROMPT} `);
   assert.match(meal.url, /^\/api\/ecosystem\/images\/[0-9a-f-]{36}$/);
   assert.equal(meal.prompt, PROMPT);
+  assert.deepEqual(meal.provenance, { provider: 'openai', model: 'gpt-image-2', quality: 'high', size: '1024x1024', requestId: 'req_image_verified' });
   assert.match(meal.caption, /AI-generated meal illustration/);
   assert.match(meal.caption, /not a photograph or nutrition facts/);
   assert.equal(new Date(meal.generatedAt).toISOString(), meal.generatedAt);
@@ -238,11 +239,11 @@ test('meal generation uses one low-quality 1024 PNG and returns a retrievable pr
 
 test('meal image model override retains hard size/quality/count caps and files have distinct IDs', async t => {
   process.env.OPENAI_API_KEY = KEY;
-  process.env.OPENAI_IMAGE_MODEL = 'gpt-image-1.5';
+  process.env.OPENAI_IMAGE_MODEL = 'gpt-image-2-2026-04-21';
   t.mock.method(globalThis, 'fetch', async (_input: Parameters<typeof fetch>[0], init?: RequestInit) => {
     const body = JSON.parse(String(init?.body));
-    assert.equal(body.model, 'gpt-image-1.5');
-    assert.equal(body.n, 1); assert.equal(body.quality, 'low'); assert.equal(body.size, '1024x1024');
+    assert.equal(body.model, 'gpt-image-2-2026-04-21');
+    assert.equal(body.n, 1); assert.equal(body.quality, 'high'); assert.equal(body.size, '1024x1024');
     return imageResponse();
   });
   const first = await generateMealImage('rice');
@@ -335,7 +336,9 @@ async function deadlineTest(t: TestContext, operation: () => Promise<unknown>, o
 test('vision deadline aborts an unresponsive fetch', async t => deadlineTest(t, () => analyzeImage(PNG, 'image/png')));
 test('vision deadline covers body consumption after headers', async t => deadlineTest(t, () => analyzeImage(PNG, 'image/png'), { body: true }));
 test('generation deadline covers body consumption after headers', async t => deadlineTest(t, () => generateMealImage(PROMPT), { body: true }));
-test('configured timeouts above 90 seconds are capped', async t => deadlineTest(t, () => generateMealImage(PROMPT), { configured: '99999999', ms: 90_000 }));
+test('generation remains active beyond 90 seconds and stops at its three-minute default', async t => deadlineTest(t, () => generateMealImage(PROMPT), { configured: '', ms: 180_000 }));
+test('configured generation timeouts above three minutes are capped', async t => deadlineTest(t, () => generateMealImage(PROMPT), { configured: '99999999', ms: 180_000 }));
+test('configured vision timeouts remain capped at 90 seconds', async t => deadlineTest(t, () => analyzeImage(PNG, 'image/png'), { configured: '99999999', ms: 90_000 }));
 test('invalid timeout values use the bounded default', async t => deadlineTest(t, () => analyzeImage(PNG, 'image/png'), { configured: 'Infinity', ms: 60_000 }));
 
 test('an image response arriving after timeout cannot persist a file', async t => {
@@ -399,4 +402,26 @@ test('symlinked .mentor parent is rejected for both operations', async t => {
   await assert.rejects(generateMealImage(PROMPT), safeFailure('IMAGE_STORAGE_ERROR', 503));
   await assert.rejects(getGeneratedImage(id), safeFailure('IMAGE_NOT_FOUND', 404));
   assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+
+test('image and vision quota errors expose only an actionable credit failure without retries', async t => {
+  process.env.OPENAI_API_KEY = KEY;
+  const mock = t.mock.method(globalThis, 'fetch', async () => Response.json({ error: {
+    code: 'credit_balance_exhausted', type: 'insufficient_quota', message: `${PRIVATE} ${KEY} ${PROMPT}`,
+  } }, { status: 429 }));
+  await assert.rejects(generateMealImage(PROMPT), safeFailure('OPENAI_CREDITS_EXHAUSTED', 429));
+  await assert.rejects(analyzeImage(PNG, 'image/png'), safeFailure('OPENAI_CREDITS_EXHAUSTED', 429));
+  assert.equal(mock.mock.callCount(), 2);
+});
+
+test('incompatible image-model overrides fail before any provider call or storage write', async t => {
+  process.env.OPENAI_API_KEY = KEY;
+  const fetchMock = t.mock.method(globalThis, 'fetch');
+  for (const model of ['gpt-image-1-mini', 'gpt-image-2.5', '<img src=x onerror=alert(1)>', 'gpt-image-2-unknown']) {
+    process.env.OPENAI_IMAGE_MODEL = model;
+    await assert.rejects(generateMealImage(PROMPT), safeFailure('IMAGE_MODEL_UNSUPPORTED', 503));
+  }
+  assert.equal(fetchMock.mock.callCount(), 0);
+  assert.deepEqual(readdirSync('.'), []);
 });

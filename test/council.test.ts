@@ -340,6 +340,28 @@ test('explicit meal image request plus permission makes exactly one real generat
   const result = f.results.find(r => r.success)!; assert.deepEqual(JSON.parse(result.output), { url: meal.url, caption: meal.caption, generatedAt: meal.generatedAt });
 });
 
+test('a 170-second image can finish and reach peer review within the default image council deadline', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const f = fixture({ actions: s => s.mentorId === 'health' && s.prompt.phase === 'proposal'
+    ? [{ name: 'generate_meal_image', arguments: { prompt: 'A bean and rice dinner' } }] : [] });
+  const value = input(); value.prompt = 'Generate an image of a vegetarian dinner meal.'; value.mentors[0]!.tools.push('image');
+  let finishImage: ((image: typeof meal) => void) | undefined;
+  let settled = false;
+  const result = createCouncilRunner({ ...f.dependencies, timeoutMs: undefined, roundTimeoutMs: undefined,
+    generateMealImage: () => new Promise(resolve => { finishImage = resolve; }),
+  })(value, f.hooks).then(decision => { settled = true; return { decision }; }, error => { settled = true; return { error }; });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(finishImage);
+  t.mock.timers.tick(170_000);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(settled, false, 'The council must not cancel valid image generation at the old 160-second cap.');
+  finishImage(meal);
+  const outcome = await result;
+  assert.ok('decision' in outcome, 'Generation must reach the completed council recommendation.');
+  assert.equal(f.messages.filter(m => m.imageUrl === meal.url).length, 1);
+  assert.ok(f.messages.some(m => m.phase === 'review' && m.to === 'finance'));
+});
+
 test('image tool is absent without both explicit user request and mentor permission, including negation', async () => {
   for (const prompt of ['Find me a healthy meal.', 'Do not generate a meal image.', 'Generate a picture of a mountain.']) {
     const f = fixture(); const value = input(); value.prompt = prompt; value.mentors[0]!.tools.push('image');
@@ -349,6 +371,16 @@ test('image tool is absent without both explicit user request and mentor permiss
   const f = fixture({ actions: () => [{ name: 'generate_meal_image', arguments: { prompt: 'Dinner' } }] });
   await assert.rejects(createCouncilRunner(f.dependencies)({ ...input(), prompt: 'Generate a meal image.' }, f.hooks), errorCode('TOOL_PERMISSION'));
   assert.equal(f.images(), 0);
+});
+
+test('image model provenance reaches both the council timeline and peer tool result', async () => {
+  const f = fixture({ actions: s => s.mentorId === 'health' && s.prompt.phase === 'proposal' ? [{ name: 'generate_meal_image', arguments: { prompt: 'A bean and rice dinner' } }] : [] });
+  const value = input(); value.prompt = 'Generate an image of a vegetarian dinner meal.'; value.mentors[0]!.tools.push('image');
+  const provenance = { provider: 'openai' as const, model: 'gpt-image-2', quality: 'high' as const, size: '1024x1024' as const, requestId: 'req_image_verified' };
+  await createCouncilRunner({ ...f.dependencies, generateMealImage: async () => ({ ...meal, provenance }) })(value, f.hooks);
+  assert.deepEqual(f.messages.find(m => m.imageUrl)!.imageProvenance, provenance);
+  const result = f.results.find(r => r.success)!;
+  assert.deepEqual(JSON.parse(result.output).provenance, provenance);
 });
 
 test('a failed image attempt is never retried and cannot emit a fake image URL', async () => {

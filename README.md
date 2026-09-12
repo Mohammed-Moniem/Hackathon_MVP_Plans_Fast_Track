@@ -27,6 +27,8 @@ The server listens on `127.0.0.1:3210`. `PORT` can select another port. The Type
 
 ## What has been verified
 
+**Latest API audit:** The replacement OutOfTheBoxJS key passed fresh live checks for GPT Image 2, receipt vision, speech/transcription, custom mentor creation, a two-mentor council with Exa, daily planning and DealGuard. Meal images and both installed coach portraits now have verified `gpt-image-2` provenance. The image deadline was extended to 180 seconds after a successful 137-second generation. See [current API verification](docs/API_VERIFICATION_2026_09_12.md).
+
 | Capability | Observed result |
 |---|---|
 | OpenAI Agents API | Real hosted session, application tool round trip and downloaded artifact verified |
@@ -44,9 +46,9 @@ The server listens on `127.0.0.1:3210`. `PORT` can select another port. The Type
 
 Live runs took approximately 67 seconds for DealGuard’s initial review and 70–79 seconds per MentorOS turn. Cold hosted startup and model latency vary. An interrupted MentorOS follow-up was safely resumed in the same accepted turn, returning real Dubai Marina sources and preserving the prior approved times. See [recovery verification](docs/MENTOR_RECOVERY_VERIFICATION.md). This is a local hackathon prototype, not a deployed or production-validated service.
 
-**Current external blocker:** OpenAI returned `credit_balance_exhausted` during the final voice check. Saved results and manual editing work; new OpenAI calls require restored credits. No payment was made.
+**OpenAI key issue resolved:** The old key belonged to `algidaq`; the user replaced it with a working key from the funded OutOfTheBoxJS project. The app has reloaded it. Exa also passed; OpenRouter is not configured. Calendar remains `.ics` export, and the teammate Slack bot remains separate from this web app. See [current API verification](docs/API_VERIFICATION_2026_09_12.md).
 
-Final automated check: **193 passed, 1 optional live test skipped, 0 failures**; type check and build passed. The teammate’s separate DealGuard build already has Slack integration, as confirmed by the user; this workspace’s web UI does not yet share that bot’s runtime state or credentials.
+Latest automated check: **225 passed, 1 optional live test skipped, 0 failures**; type check and build passed. The teammate’s separate DealGuard build already has Slack integration, as confirmed by the user; this workspace’s web UI does not yet share that bot’s runtime state or credentials.
 
 Detailed evidence: [voice and Exa](docs/VOICE_VERIFICATION.md), [MentorOS](docs/MENTOR_LIVE_VERIFICATION.md), [DealGuard](docs/DEAL_LIVE_VERIFICATION.md), [HTTP/security checks](docs/SERVER_VERIFICATION.md). The [demo runbook](docs/DEMO_RUNBOOK.md) includes a two-minute recording outline.
 
@@ -61,7 +63,7 @@ The apps read process environment first, then `.env.local`, then `.env`. The cur
 | `MENTOR_MODEL` | Optional daily-planner/Agents model override |
 | `COUNCIL_MODEL` / `COUNCIL_SYNTHESIS_MODEL` | Optional council agent and final synthesis models |
 | `MENTOR_BUILDER_MODEL` / `OPENAI_VISION_MODEL` | Default `gpt-4.1-mini` |
-| `OPENAI_IMAGE_MODEL` | Default `gpt-image-1-mini`; one low-quality 1024px PNG per request |
+| `OPENAI_IMAGE_MODEL` | Only `gpt-image-2` (default) or `gpt-image-2-2026-04-21`; one high-quality 1024px PNG per request, with model/request provenance |
 | `EXA_API_KEY` | Real web/source retrieval |
 | `OPENAI_TRANSCRIPTION_MODEL` | Default `gpt-4o-mini-transcribe` |
 | `OPENAI_TTS_MODEL` | Default `gpt-4o-mini-tts` |

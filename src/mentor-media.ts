@@ -11,6 +11,7 @@ const MAX_BASE64_LENGTH = 4 * Math.ceil(MAX_IMAGE_BYTES / 3);
 const MAX_PROMPT = 2000;
 const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const IMAGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const IMAGE_MODELS = new Set(['gpt-image-2', 'gpt-image-2-2026-04-21']);
 const CAPTION = 'AI-generated meal illustration, not a photograph or nutrition facts. Ingredients, portions, allergens and nutritional values are not verified.';
 
 // Deliberately local: providers.ts does not export its error class. No upstream
@@ -26,6 +27,11 @@ const timedOut = () => new ProviderError('OpenAI image request timed out. Please
 const notFound = () => new ProviderError('Generated image not found.', 'IMAGE_NOT_FOUND', 404);
 const storageError = () => new ProviderError('Generated image storage is unavailable.', 'IMAGE_STORAGE_ERROR', 503);
 const env = (name: string) => process.env[name]?.trim() ?? '';
+
+/** Configuration only. Successful generation records the actual request separately. */
+export function getImageGenerationConfig() {
+  return { model: env('OPENAI_IMAGE_MODEL') || 'gpt-image-2', quality: 'high' as const, size: '1024x1024' as const };
+}
 
 function boundedPrompt(value: unknown, optional = false): string {
   if (optional && value === undefined) return '';
@@ -93,8 +99,11 @@ async function readResponse(response: Response, maxBytes: number, signal: AbortS
       chunks.push(Buffer.from(next.value));
     }
     signal.throwIfAborted();
-    // Bytes are already decoded by fetch. Do not retain upstream length/encoding headers.
-    return new Response(Buffer.concat(chunks, length), { status: response.status, headers: { 'content-type': 'application/json' } });
+    // Bytes are already decoded by fetch. Retain only content type and the trace ID.
+    const headers = new Headers({ 'content-type': 'application/json' });
+    const requestId = response.headers.get('x-request-id');
+    if (requestId && /^[a-zA-Z0-9_-]{1,200}$/.test(requestId) && !requestId.startsWith('sk-')) headers.set('x-request-id', requestId);
+    return new Response(Buffer.concat(chunks, length), { status: response.status, headers });
   } finally {
     signal.removeEventListener('abort', cancel);
     cancel();
@@ -106,7 +115,10 @@ async function request<T>(defaultMs: number, maxResponseBytes: number,
   const apiKey = env('OPENAI_API_KEY');
   if (!apiKey) throw new ProviderError('OPENAI_API_KEY is not configured.', 'PROVIDER_NOT_CONFIGURED', 503);
   const configured = Number(env('PROVIDER_TIMEOUT_MS'));
-  const ms = Number.isFinite(configured) && configured > 0 ? Math.max(1000, Math.min(90_000, Math.trunc(configured))) : defaultMs;
+  // High-quality Image 2 can exceed 90 seconds. Keep receipt analysis capped
+  // at 90 seconds while allowing the longer, still bounded image deadline.
+  const maxMs = Math.max(90_000, defaultMs);
+  const ms = Number.isFinite(configured) && configured > 0 ? Math.max(1000, Math.min(maxMs, Math.trunc(configured))) : defaultMs;
   const controller = new AbortController();
   // Capture wrapper failures ourselves: the SDK may otherwise wrap them in a connection error.
   let transportFailure: ProviderError | undefined;
@@ -121,7 +133,14 @@ async function request<T>(defaultMs: number, maxResponseBytes: number,
         try {
           const response = await fetch(input, { ...init, redirect: 'error' });
           if (!response.ok) {
-            void response.body?.cancel().catch(() => {});
+            // Classify allowlisted error codes only; never expose raw provider text.
+            let creditsExhausted = false;
+            try {
+              const errorBody = await (await readResponse(response, 16 * 1024, controller.signal)).json() as { error?: { code?: string; type?: string } };
+              creditsExhausted = response.status === 429 &&
+                (['credit_balance_exhausted', 'insufficient_quota'].includes(errorBody.error?.code || '') || errorBody.error?.type === 'insufficient_quota');
+            } catch { /* Keep malformed or oversized upstream errors private. */ }
+            if (creditsExhausted) throw new ProviderError('OpenAI API credits are exhausted. Add credits to this project, then try again.', 'OPENAI_CREDITS_EXHAUSTED', 429);
             throw new ProviderError(`OpenAI image request failed (HTTP ${response.status}). Check provider access or try again later.`,
               'PROVIDER_HTTP_ERROR', response.status === 429 ? 429 : 502);
           }
@@ -199,14 +218,18 @@ function generatedPNG(buffer: Buffer): boolean {
 
 export async function generateMealImage(prompt: string): Promise<MealImage> {
   const input = boundedPrompt(prompt);
-  return request(90_000, MAX_BASE64_LENGTH + 64 * 1024, async (client, signal) => {
+  const imageConfig = getImageGenerationConfig();
+  if (!IMAGE_MODELS.has(imageConfig.model)) throw new ProviderError(
+    'Image generation requires gpt-image-2. Set OPENAI_IMAGE_MODEL to gpt-image-2 or gpt-image-2-2026-04-21.',
+    'IMAGE_MODEL_UNSUPPORTED', 503);
+  return request(180_000, MAX_BASE64_LENGTH + 64 * 1024, async (client, signal) => {
     let directory: string;
     try { directory = imageDirectory(true); } catch { throw storageError(); }
-    const response = await client.images.generate({
-      model: env('OPENAI_IMAGE_MODEL') || 'gpt-image-1-mini',
-      prompt: `Create a meal illustration for this description. Do not add text, nutritional labels, calorie counts or health claims. The result is an illustrative suggestion, not verified nutrition information. Description: ${input}`,
-      size: '1024x1024', quality: 'low', n: 1, output_format: 'png',
-    }, { signal });
+    const { data: response, request_id: requestId } = await client.images.generate({
+      ...imageConfig,
+      prompt: `Create a photorealistic meal illustration for this description, with natural food textures and appetizing lighting. Do not add text, nutritional labels, calorie counts or health claims. The result is an illustrative suggestion, not verified nutrition information. Description: ${input}`,
+      n: 1, output_format: 'png',
+    }, { signal }).withResponse();
     const encoded = response.data?.[0]?.b64_json;
     if (response.data?.length !== 1 || typeof encoded !== 'string' || !encoded.length || encoded.length > MAX_BASE64_LENGTH ||
         encoded.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw invalidResponse();
@@ -227,7 +250,8 @@ export async function generateMealImage(prompt: string): Promise<MealImage> {
     } finally {
       if (fd !== undefined) { try { closeSync(fd); } catch { /* No raw filesystem errors. */ } }
     }
-    return { url: `/api/ecosystem/images/${id}`, prompt: input, caption: CAPTION, generatedAt: new Date().toISOString() };
+    return { url: `/api/ecosystem/images/${id}`, prompt: input, caption: CAPTION, generatedAt: new Date().toISOString(),
+      provenance: { provider: 'openai', ...imageConfig, ...(requestId ? { requestId } : {}) } };
   });
 }
 

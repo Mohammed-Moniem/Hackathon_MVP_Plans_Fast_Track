@@ -110,8 +110,8 @@ interface Participant { mentor: CustomMentor; sessionId?: string; turnId?: strin
 /**
  * 2–4 distinct hosted mentor sessions; two parallel rounds, then one Responses
  * synthesis (4–8 Agents turns + 1 synthesis, at most four actual searches).
- * Work is capped at 215s and cleanup at 5s. Normal text runs target <160s;
- * hosted provisioning and optional image generation can take longer.
+ * Text work is capped at 215s, image councils at 330s, and cleanup at 5s.
+ * Image councils include the media provider's 180s deadline plus agent turns.
  * No automatic paid retry/fallback.
  */
 export function createCouncilRunner(options: CouncilOptions = {}) {
@@ -125,8 +125,10 @@ export function createCouncilRunner(options: CouncilOptions = {}) {
     const model = options.model ?? (process.env.COUNCIL_MODEL?.trim() || process.env.MENTOR_MODEL?.trim() || process.env.OPENAI_MODEL?.trim() || 'gpt-6-astra');
     const synthesisModel = options.synthesisModel ?? (process.env.COUNCIL_SYNTHESIS_MODEL?.trim() || model);
     const legacySynthesis = /^gpt-4[.o]/.test(synthesisModel);
-    const timeout = boundedNumber(options.timeoutMs, 215_000, 215_000);
-    const roundTimeout = boundedNumber(options.roundTimeoutMs, 100_000, 160_000);
+    const imageRequested = requestsMealImage(input.prompt);
+    const councilLimit = imageRequested ? 330_000 : 215_000;
+    const timeout = boundedNumber(options.timeoutMs, councilLimit, councilLimit);
+    const roundTimeout = boundedNumber(options.roundTimeoutMs, 100_000, imageRequested ? 240_000 : 160_000);
     const searchTimeout = boundedNumber(options.searchTimeoutMs, 12_000, 15_000);
     const cleanupTimeout = boundedNumber(options.cleanupTimeoutMs, 5000, 5000);
     const searchBudget = boundedNumber(options.searchBudget, 4, 4, 0);
@@ -136,7 +138,6 @@ export function createCouncilRunner(options: CouncilOptions = {}) {
     const participants: Participant[] = input.mentors.map(mentor => ({ mentor, completed: false }));
     const sources = new Map<string, SearchResult>();
     let searchCount = 0, toolCount = 0, imageAttempted = false;
-    const imageRequested = requestsMealImage(input.prompt);
     const toolResults = new Map<string, { success: true; output: string } | { success: false; error: string }>();
     const discretionaryHeadroom = Math.max(0, input.profile.monthlyIncome - input.profile.essentialExpenses - input.profile.savingsTarget);
     const wellnessCeiling = Math.min(input.profile.wellnessBudget, discretionaryHeadroom);
@@ -147,8 +148,8 @@ export function createCouncilRunner(options: CouncilOptions = {}) {
       : `Monthly unallocated headroom: AED ${discretionaryHeadroom} after essentials and the savings target. This is not a confirmed travel or career budget, and other discretionary spending is unknown. The separate wellness allowance is AED ${wellnessCeiling}; do not apply it as a budget for unrelated goals.`;
     const context = { request: input.prompt, profile: input.profile, memory: input.memory, affordable, discretionaryHeadroom, wellnessCeiling, budgetCategory: wellnessRequest ? 'wellness' : 'unallocated', financeRule: budgetNote };
     const now = () => (options.now ?? (() => new Date()))().toISOString();
-    const emit = (mentor: Pick<CustomMentor, 'id' | 'name'>, phase: CouncilMessage['phase'], message: string, to = 'ecosystem', imageUrl?: string) => {
-      hooks.message({ id: randomUUID(), mentorId: mentor.id, mentorName: mentor.name, phase, text: message, to, at: now(), ...(imageUrl ? { imageUrl } : {}) });
+    const emit = (mentor: Pick<CustomMentor, 'id' | 'name'>, phase: CouncilMessage['phase'], message: string, to = 'ecosystem', imageUrl?: string, imageProvenance?: CouncilMessage['imageProvenance']) => {
+      hooks.message({ id: randomUUID(), mentorId: mentor.id, mentorName: mentor.name, phase, text: message, to, at: now(), ...(imageUrl ? { imageUrl } : {}), ...(imageProvenance ? { imageProvenance } : {}) });
     };
     const coordinator = { id: 'council', name: 'Council coordinator' };
     const validateRefs = (refs: string[], visible: Set<string>) => {
@@ -161,7 +162,7 @@ export function createCouncilRunner(options: CouncilOptions = {}) {
       const stopRound = () => roundController.abort();
       controller.signal.addEventListener('abort', stopRound, { once: true });
       if (controller.signal.aborted) roundController.abort();
-      const stageTimeout = phase === 'proposal' ? (imageRequested && options.roundTimeoutMs === undefined ? 160_000 : roundTimeout) : Math.min(roundTimeout, 90_000);
+      const stageTimeout = phase === 'proposal' ? (imageRequested && options.roundTimeoutMs === undefined ? 240_000 : roundTimeout) : Math.min(roundTimeout, 90_000);
       const roundTimer = setTimeout(stopRound, stageTimeout);
       const signal = roundController.signal;
       const opts = { signal, maxRetries: 0, timeout: stageTimeout };
@@ -209,9 +210,11 @@ export function createCouncilRunner(options: CouncilOptions = {}) {
               try {
                 const generated = await bounded(() => (options.generateMealImage ?? generateMealImage)(parsedImage.data.prompt));
                 if (signal.aborted) throw new CouncilError('The council reached its time limit.', 'TIMEOUT');
-                const image = z.object({ url: z.string().regex(/^\/api\/ecosystem\/images\/[0-9a-f-]{36}$/), caption: text(1200), prompt: text(2000), generatedAt: text(100) }).strict().parse(generated);
-                emit(mentor, 'tool', image.caption, 'ecosystem', image.url);
-                result = { success: true, output: JSON.stringify({ url: image.url, caption: image.caption, generatedAt: image.generatedAt }) };
+                const image = z.object({ url: z.string().regex(/^\/api\/ecosystem\/images\/[0-9a-f-]{36}$/), caption: text(1200), prompt: text(2000), generatedAt: text(100),
+                  provenance: z.object({ provider: z.literal('openai'), model: text(100), quality: z.literal('high'), size: z.literal('1024x1024'), requestId: text(200).optional() }).strict().optional(),
+                }).strict().parse(generated);
+                emit(mentor, 'tool', image.caption, 'ecosystem', image.url, image.provenance);
+                result = { success: true, output: JSON.stringify({ url: image.url, caption: image.caption, generatedAt: image.generatedAt, ...(image.provenance ? { provenance: image.provenance } : {}) }) };
               } catch {
                 if (signal.aborted) throw new CouncilError('The council reached its time limit.', 'TIMEOUT');
                 result = { success: false, error: 'Meal image generation failed. No image is available and the attempt will not be repeated.' };

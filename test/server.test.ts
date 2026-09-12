@@ -460,7 +460,9 @@ test('isolated replay HTTP integration and security', { timeout: 90_000 }, async
     assert.deepEqual(edited.mentors.find(m => m.id === added.id), edit);
     assert.equal(edited.profileRevision, created.profileRevision + 1);
     const path = join(isolated.cwd, '.mentor', 'ecosystem.json');
-    assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), edited);
+    const { imageGeneration, ...persistedState } = edited;
+    assert.deepEqual(imageGeneration, { model: 'gpt-image-2', quality: 'high', size: '1024x1024' });
+    assert.deepEqual(JSON.parse(await readFile(path, 'utf8')), persistedState);
     assert.equal((await stat(path)).mode & 0o777, 0o600);
     await isolated.restart();
     assert.deepEqual(await ecosystem(), edited);

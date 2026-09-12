@@ -377,7 +377,7 @@
     if (['studio', 'profile'].includes(current.view)) prepareEditor();
     if (current.view === 'review') region('#app-review-empty', !ecosystem ? loading('Loading your latest recommendation…') : ecosystem.run?.decision ? '' : empty(ecosystem.run?.status === 'running' ? 'Your council is still talking' : ecosystem.run?.status === 'failed' ? 'No decision was returned' : 'A decision starts with a question', ecosystem.run?.status === 'failed' ? ecosystem.run.error || 'Review the council conversation for the latest service response.' : 'The exact recommendation and approval controls will appear here when your council returns a decision.', link(href('council'), 'Open the conversation', 'eco-button eco-primary')));
     if (current.view === 'library') {
-      for (const tool of ['vision', 'image']) region(`#app-tool-${tool}`, !ecosystem ? 'Checking configuration…' : ecosystem.capabilities?.[tool] ? 'Service configured · availability may vary' : 'Service not configured');
+      for (const tool of ['vision', 'image']) region(`#app-tool-${tool}`, !ecosystem ? 'Checking configuration…' : ecosystem.capabilities?.[tool] ? (tool === 'image' && ecosystem.imageGeneration ? `${esc(ecosystem.imageGeneration.model)} · ${esc(ecosystem.imageGeneration.quality)} quality · configured` : 'Service configured · availability may vary') : 'Service not configured');
       const count = list(ecosystem?.run?.sources).length + list(day?.proposal?.sources).length;
       region('#app-tool-sources', !ecosystem && !day ? 'Waiting for source state…' : `${count} ${count === 1 ? 'source' : 'sources'} in loaded recommendations`);
     }

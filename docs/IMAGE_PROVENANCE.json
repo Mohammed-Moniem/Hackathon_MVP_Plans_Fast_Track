@@ -1,22 +1,63 @@
 {
   "created": "2026-09-12",
-  "provider": "Integrated OpenAI image generation",
-  "use": "Static original fictional AI coach portraits. No real person likeness requested. Unedited copies of tool outputs; CSS crops for card display.",
+  "updated": "2026-09-12T12:04:43.541Z",
+  "provider": "OpenAI Images API",
+  "endpoint": "/v1/images/edits",
+  "model": "gpt-image-2",
+  "quality": "high",
+  "size": "1024x1024",
+  "use": "Fictional AI coach portraits, regenerated from the original fictional assets with the same faces, clothing and photographic direction. CSS crops for card display.",
   "actualCost": null,
+  "modelVerification": "Actual funded project API requests completed, with request IDs and output hashes recorded. These installed portraits were generated using gpt-image-2.",
   "assets": [
     {
       "coach": "Mira",
-      "role": "Health",
+      "role": "health",
       "path": "web/assets/coach-health.png",
-      "original": "/Users/mohammedosman/.codex/generated_images/01a094b2-2d4c-7d83-8eeb-95fe87ed545e/exec-10c5eac3-0661-4afd-ad0a-e44d7175c663.png",
-      "sha256": "96c7ffda4acfebab6fb95ffbcdafd08c52a0db695d5aa9b302e690c5fda824d2"
+      "sha256": "b3971146a98b279153a84cc511cd1b0a912fe7bf0cccf4dac1a87038749dcb81",
+      "requestId": "req_75a6c14c4c2c4da18831a9d298bd6a3f",
+      "generatedAt": "2026-09-12T12:03:56.084Z",
+      "originalBackup": "artifacts/api-audit-20260912/original-coach-health.png",
+      "originalSha256": "96c7ffda4acfebab6fb95ffbcdafd08c52a0db695d5aa9b302e690c5fda824d2",
+      "visualReview": "Passed: same fictional character, outfit, warm backdrop and portrait composition; 1024x1024 output visually inspected.",
+      "usage": {
+        "input_tokens": 1630,
+        "input_tokens_details": {
+          "image_tokens": 1521,
+          "text_tokens": 109
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 8654
+      }
     },
     {
       "coach": "Atlas",
-      "role": "Career",
+      "role": "career",
       "path": "web/assets/coach-career.png",
-      "original": "/Users/mohammedosman/.codex/generated_images/01a094b2-2d4c-7d83-8eeb-95fe87ed545e/exec-d0b9881b-107c-4c89-8370-ed72b48dd898.png",
-      "sha256": "1e462a8a75d734d3b617f8706624e92a83e25701b9773bb5fec2152ee0e28720"
+      "sha256": "9d050381c14270555b5f4f700228620067ea94b8d640b57c8cccdc4ae5d230c0",
+      "requestId": "req_6229b4078a004653a43f3ca22c173830",
+      "generatedAt": "2026-09-12T12:03:56.084Z",
+      "originalBackup": "artifacts/api-audit-20260912/original-coach-career.png",
+      "originalSha256": "1e462a8a75d734d3b617f8706624e92a83e25701b9773bb5fec2152ee0e28720",
+      "visualReview": "Passed: same fictional character, outfit, warm backdrop and portrait composition; 1024x1024 output visually inspected.",
+      "usage": {
+        "input_tokens": 1630,
+        "input_tokens_details": {
+          "image_tokens": 1521,
+          "text_tokens": 109
+        },
+        "output_tokens": 7024,
+        "output_tokens_details": {
+          "image_tokens": 7024,
+          "text_tokens": 0
+        },
+        "total_tokens": 8654
+      }
     }
-  ]
+  ],
+  "historicalProvenance": "artifacts/api-audit-20260912/original-image-provenance.json"
 }

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { getProviderStatus } from './providers.js';
 import { safeError } from './agent.js';
 import { runCouncil } from './council.js';
+import { getImageGenerationConfig } from './mentor-media.js';
 import type { CustomMentor, SharedProfile, EcosystemState, CouncilInput, CouncilHooks, CouncilDecision, VisionAnalysis } from './ecosystem-types.js';
 
 export const mentorSchema = z.object({
@@ -47,7 +48,7 @@ export class EcosystemService {
       if(this.state.run?.status==='running') {this.state.run.status='failed';this.state.run.error='This review was interrupted by a server restart. No recommendation was approved. Start a new review when ready.';this.save();}
     } else this.save();
   }
-  getState():EcosystemState { const p=this.availability();return structuredClone({...this.state,capabilities:{agents:p.agents,search:p.search,vision:p.agents,image:p.agents}}); }
+  getState():EcosystemState { const p=this.availability();return structuredClone({...this.state,imageGeneration:getImageGenerationConfig(),capabilities:{agents:p.agents,search:p.search,vision:p.agents,image:p.agents}}); }
   private idle() {if(this.state.run?.status==='running') throw new Error('A council review is running. Wait for it to finish before changing its context.');}
   private invalidate() {this.state.profileRevision++;if(this.state.run?.status==='pending'){this.state.run.status='failed';this.state.run.error='The mentor team or profile changed. Run a fresh review before approving.';}}
   private save() { mkdirSync(dirname(this.path),{recursive:true,mode:0o700});const temp=`${this.path}.${randomUUID()}.tmp`;writeFileSync(temp,JSON.stringify(this.state,null,2),{mode:0o600});const fd=openSync(temp,'r');try{fsyncSync(fd);}finally{closeSync(fd);}renameSync(temp,this.path); }

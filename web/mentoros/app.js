@@ -6,6 +6,7 @@
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   const icon = (name) => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
   const coachNames = { health: 'Mira', career: 'Atlas' };
+  const MESSAGE_LIMIT = 4000;
   const kinds = { work: 'Work', health: 'Health', career: 'Career', personal: 'Personal' };
   let state = null;
   let selectedCoach = 'health';
@@ -271,7 +272,13 @@
     $('#mode').disabled = !usable || turn || mediaBusy;
     $('#message-input').disabled = !usable;
     $('#area-input').disabled = !usable;
-    $('#send-button').disabled = !canMessage() || !$('#message-input').value.trim();
+    const messageLength = $('#message-input').value.length;
+    const overLimit = messageLength > MESSAGE_LIMIT;
+    $('#message-length').textContent = overLimit
+      ? `${messageLength.toLocaleString()} / 4,000 characters. Your full draft is kept; shorten it by ${(messageLength - MESSAGE_LIMIT).toLocaleString()} ${messageLength - MESSAGE_LIMIT === 1 ? 'character' : 'characters'} before sending.`
+      : `${messageLength.toLocaleString()} / 4,000 characters`;
+    $('#message-input').setAttribute('aria-invalid', String(overLimit));
+    $('#send-button').disabled = !canMessage() || !$('#message-input').value.trim() || overLimit;
     $('#disrupt-button').disabled = !canMessage();
     $('#export-button').disabled = !usable || turn || !(state?.calendar?.canExport ?? state?.proposal?.status === 'approved');
     $('#export-button').innerHTML = `${icon('download')}Export approved calendar`;
@@ -346,6 +353,7 @@
 
   async function sendMessage() {
     const text = $('#message-input').value.trim();
+    if ($('#message-input').value.length > MESSAGE_LIMIT) { renderControls(); $('#message-input').focus(); return; }
     if (!text || !canMessage()) return;
     const revision = draftRevision;
     const result = await mutate('message', { text, ...($('#area-input').value.trim() ? { area: $('#area-input').value.trim() } : {}) });
@@ -446,7 +454,9 @@
           const draft = draftRevision === revision ? initialDraft : $('#message-input').value;
           $('#message-input').value = `${draft}${draft.trim() ? '\n' : ''}${result.text.trim()}`;
           draftRevision++;
-          $('#voice-status').textContent = 'Transcribed. Review your message, then press send.';
+          $('#voice-status').textContent = $('#message-input').value.length > MESSAGE_LIMIT
+            ? 'Your full transcript was added to the draft. Shorten it to 4,000 characters before sending.'
+            : 'Transcribed. Review your message, then press send.';
           $('#voice-status').dataset.sticky = 'true';
           $('#message-input').focus();
         } catch (error) { if(generation===transcriptionGeneration&&!transcription.signal.aborted)notify(error.message, 'error'); }
